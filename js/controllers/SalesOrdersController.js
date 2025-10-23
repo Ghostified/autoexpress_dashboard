@@ -14,7 +14,7 @@ class SalesOrdersController extends BaseController {
         super(model, view);
         
         this.apiService = apiService;
-        this.dashboardType = 'sales-orders';
+        this.dashboardType = 'salesOrders';
     }
 
     /**

@@ -30,12 +30,12 @@ class OpportunitiesModel extends BaseModel {
             const data = await this.apiService.get('/opportunities', this.filters);
 
             // Process the data
-            this.opportunities = data.opportunities || [];
+            this.opportunities = this.applyFilters(data.opportunities || []);
             this.summary = this.calculateSummary(this.opportunities);
         } catch (error) {
             console.warn('Opportunities API failed, falling back to mock data:', error);
             const mock = await this.apiService.getMockOpportunities();
-            this.opportunities = mock.opportunities || [];
+            this.opportunities = this.applyFilters(mock.opportunities || []);
             this.summary = mock.summary || this.calculateSummary(this.opportunities);
         }
 
@@ -49,6 +49,34 @@ class OpportunitiesModel extends BaseModel {
 
         this.notifyListeners();
         return this.data;
+    }
+
+    /**
+     * Apply current filters to a list of opportunities
+     */
+    applyFilters(opportunities) {
+        const { dateRange, status, assignedTo, category } = this.filters;
+        const now = Date.now();
+        const rangeDays = parseInt(dateRange || '90', 10);
+        const minTimestamp = now - rangeDays * 24 * 60 * 60 * 1000;
+
+        return opportunities.filter(opportunity => {
+            // Date range (based on creation date)
+            const created = parseInt(opportunity.date_created, 10);
+            const withinRange = isNaN(created) ? true : created >= minTimestamp;
+
+            // Status filter
+            const statusMatch = (status === 'all') || ((opportunity.status || 'new') === status);
+
+            // Assigned to filter
+            const assignedMatch = (assignedTo === 'all') || ((opportunity.assigned_to || 'Unassigned') === assignedTo);
+
+            // Category filter
+            const categoryValue = this.getOpportunityCategory(opportunity);
+            const categoryMatch = (category === 'all') || (categoryValue === category);
+
+            return withinRange && statusMatch && assignedMatch && categoryMatch;
+        });
     }
 
     /**

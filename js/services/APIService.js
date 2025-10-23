@@ -9,6 +9,23 @@ class ApiService {
         this.token = localStorage.getItem('crm_auth_token');
         this.pendingRequests = new Map();
         this.requestCounter = 0;
+        this.mockMode = this.shouldUseMockMode(baseURL);
+    }
+
+    /**
+     * Determine mock mode based on URL or local setting
+     */
+    shouldUseMockMode(baseURL) {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mock') === '1') return true;
+            const stored = localStorage.getItem('crm_mock_mode');
+            if (stored === 'true') return true;
+            if (!baseURL || baseURL === 'mock') return true;
+            // In file:// contexts, avoid network
+            if (window.location.protocol === 'file:') return true;
+        } catch {}
+        return false;
     }
 
     /**
@@ -255,6 +272,9 @@ class ApiService {
      * GET request
      */
     async get(endpoint, params = {}) {
+        if (this.mockMode) {
+            return this.mockGet(endpoint, params);
+        }
         const queryString = new URLSearchParams(params).toString();
         const url = queryString ? `${endpoint}?${queryString}` : endpoint;
         return this.request(url, { method: 'GET' });
@@ -264,6 +284,9 @@ class ApiService {
      * POST request
      */
     async post(endpoint, data) {
+        if (this.mockMode) {
+            return this.mockPost(endpoint, data);
+        }
         return this.request(endpoint, {
             method: 'POST',
             body: JSON.stringify(data)
@@ -274,6 +297,13 @@ class ApiService {
      * PUT request
      */
     async put(endpoint, data) {
+        if (this.mockMode) {
+            // Simulate preferences save locally
+            if (endpoint === '/user/preferences') {
+                localStorage.setItem('crm_user_preferences', JSON.stringify(data));
+                return { success: true, preferences: data };
+            }
+        }
         return this.request(endpoint, {
             method: 'PUT',
             body: JSON.stringify(data)
@@ -361,6 +391,11 @@ class ApiService {
      * Download generated PDF
      */
     async downloadPDF(pdfId) {
+        if (this.mockMode) {
+            // Simulate immediate download success
+            const blob = new Blob([`Mock PDF ${pdfId}`], { type: 'application/pdf' });
+            return this.handleFileDownload(blob, `dashboard-report-${pdfId}.pdf`);
+        }
         const response = await this.request(`/pdf/download/${pdfId}`);
         
         // Handle blob response for file download
@@ -682,6 +717,128 @@ class ApiService {
                 total: 3,
                 pages: 1
             }
+        };
+    }
+
+    /**
+     * Mock GET router
+     */
+    async mockGet(endpoint, params = {}) {
+        // Normalize endpoint (strip query)
+        const path = endpoint.split('?')[0];
+        // Simulated small network latency
+        await new Promise(r => setTimeout(r, 200));
+
+        if (path === '/opportunities') {
+            const mock = await this.getMockOpportunities();
+            return mock;
+        }
+        if (path === '/sales-orders') {
+            return this.getMockSalesOrders();
+        }
+        if (path === '/dashboard/summary') {
+            const opp = await this.getMockOpportunities();
+            const so = await this.getMockSalesOrders();
+            return {
+                opportunities: opp.summary,
+                salesOrders: this.summarizeSalesOrders(so.orders)
+            };
+        }
+        if (path === '/helpdesk-tickets') {
+            return {
+                tickets: [
+                    { id: 'HD-1001', status: 'open', priority: 'high', subject: 'Login issue', created_at: Date.now() - 86400000 },
+                    { id: 'HD-1002', status: 'in_progress', priority: 'medium', subject: 'Billing discrepancy', created_at: Date.now() - 43200000 }
+                ],
+                pagination: { page: 1, total: 2 }
+            };
+        }
+        if (path === '/user/preferences') {
+            const prefs = localStorage.getItem('crm_user_preferences');
+            return prefs ? JSON.parse(prefs) : { theme: 'light', pageSize: 25 };
+        }
+        // Default empty
+        return {};
+    }
+
+    /**
+     * Mock POST router
+     */
+    async mockPost(endpoint, data) {
+        await new Promise(r => setTimeout(r, 200));
+        if (endpoint === '/pdf/generate') {
+            return { id: `pdf_${Date.now()}`, status: 'generated' };
+        }
+        if (endpoint === '/email/send') {
+            return { success: true };
+        }
+        if (endpoint === '/auth/login') {
+            const token = `mock_${Date.now()}`;
+            this.setToken(token);
+            return { token };
+        }
+        if (endpoint === '/auth/logout') {
+            this.clearToken();
+            return { success: true };
+        }
+        if (endpoint === '/auth/refresh') {
+            const token = `mock_${Date.now()}`;
+            this.setToken(token);
+            return { token };
+        }
+        return { success: true };
+    }
+
+    /**
+     * Mock sales orders data
+     */
+    getMockSalesOrders() {
+        return {
+            orders: [
+                {
+                    order_id: 'SO-2024-001',
+                    order_number: 'SO-2024-001',
+                    customer_name: 'Global Tech Inc',
+                    date_created: String(Date.now() - 3 * 24 * 60 * 60 * 1000),
+                    status: 'delivered',
+                    total_order_value: 18450,
+                    items: 3,
+                    assigned_to: 'David Chen'
+                },
+                {
+                    order_id: 'SO-2024-002',
+                    order_number: 'SO-2024-002', 
+                    customer_name: 'Nexus Solutions',
+                    date_created: String(Date.now() - 4 * 24 * 60 * 60 * 1000),
+                    status: 'shipped',
+                    total_order_value: 12800,
+                    items: 2,
+                    assigned_to: 'Sarah Jones'
+                },
+                {
+                    order_id: 'SO-2024-003',
+                    order_number: 'SO-2024-003',
+                    customer_name: 'Inghb Corporation',
+                    date_created: String(Date.now() - 5 * 24 * 60 * 60 * 1000),
+                    status: 'processing',
+                    total_order_value: 24300,
+                    items: 5,
+                    assigned_to: 'Maria Garcia'
+                }
+            ]
+        };
+    }
+
+    summarizeSalesOrders(orders) {
+        if (!orders || orders.length === 0) return { totalOrderValue: 0, totalOrders: 0, deliveredOrders: 0, avgOrderValue: 0, fulfillmentRate: 0 };
+        const totalValue = orders.reduce((s, o) => s + (o.total_order_value || 0), 0);
+        const delivered = orders.filter(o => o.status === 'delivered').length;
+        return {
+            totalOrderValue: totalValue,
+            totalOrders: orders.length,
+            deliveredOrders: delivered,
+            avgOrderValue: Math.round(totalValue / orders.length),
+            fulfillmentRate: Math.round((delivered / orders.length) * 100)
         };
     }
 }
