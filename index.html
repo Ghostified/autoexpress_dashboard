@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Company A - CRM Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <!-- Main Application Container -->
+  <div id="app">
+    <!-- Application Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="logo-section">
+          <h1 class="company-logo">Company A CRM</h1>
+          <span class="company-tagline">Executive Dashboard</span>
+        </div>
+        <div class="header-actions">
+          <button id="refreshData" class="btn btn-secondary" title="Refresh data">
+            🔄 Refresh
+          </button>
+          <button id="exportPdf" class="btn btn-primary" title="Export to PDF">
+            📊 Export PDF
+          </button>
+          <button id="emailReport" class="btn btn-primary" title="Email report">
+            📧 Email Report
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Navigation -->
+    <nav class="dashboard-nav">
+      <div class="nav-container">
+        <button class="nav-btn active" data-dashboard="opportunities">
+          📈 Opportunities
+        </button>
+        <button class="nav-btn" data-dashboard="sales-orders">
+          🛒 Sales Orders
+        </button>
+        <button class="nav-btn" data-dashboard="helpdesk">
+          🎫 Helpdesk
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="dashboard-main">
+      <!-- Loading State -->
+      <div id="loadingState" class="loading-state hidden">
+        <div class="loading-spinner"></div>
+        <p>Loading dashboard data...</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="errorState" class="error-state hidden">
+        <div class="error-icon">⚠️</div>
+        <h3>Failed to load data</h3>
+        <p id="errorMessage"></p>
+        <button id="retryButton" class="btn btn-primary">Try Again</button>
+      </div>
+
+      <!-- Dashboard Container (Dynamically loaded) -->
+      <div id="dashboardContainer" class="dashboard-container">
+        <!-- Dashboard content will be loaded here by JavaScript -->
+      </div>
+    </main>
+
+    <!-- Email Modal -->
+    <div id="emailModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>📧 Send Dashboard Report</h3>
+          <button class="modal-close">&times;</button>
+        </div>
+        <form id="emailForm" class="modal-body">
+          <div class="form-group">
+            <label for="recipientEmail">Recipient Email:</label>
+            <input type="email" id="recipientEmail" required placeholder="executive@companya.com">
+          </div>
+          <div class="form-group">
+            <label for="emailSubject">Subject:</label>
+            <input type="text" id="emailSubject" value="Company A - Dashboard Report" required>
+          </div>
+          <div class="form-group">
+            <label for="emailMessage">Message:</label>
+            <textarea id="emailMessage" rows="4"
+              placeholder="Please find attached the latest dashboard report..."></textarea>
+          </div>
+        </form>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelEmail">Cancel</button>
+          <button type="submit" form="emailForm" class="btn btn-primary">Send Email</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Modules -->
+  <script type="module" src="js/config.js"></script>
+  <script type="module" src="js/services/ApiService.js"></script>
+  <script type="module" src="js/services/PdfService.js"></script>
+  <script type="module" src="js/services/EmailService.js"></script>
+  <script type="module" src="js/models/BaseModel.js"></script>
+  <script type="module" src="js/models/OpportunitiesModel.js"></script>
+  <script type="module" src="js/models/SalesOrdersModel.js"></script>
+  <script type="module" src="js/views/BaseView.js"></script>
+  <script type="module" src="js/views/OpportunitiesView.js"></script>
+  <script type="module" src="js/views/SalesOrdersView.js"></script>
+  <script type="module" src="js/controllers/BaseController.js"></script>
+  <script type="module" src="js/controllers/OpportunitiesController.js"></script>
+  <script type="module" src="js/controllers/SalesOrdersController.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+
+</html>
