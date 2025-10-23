@@ -22,13 +22,18 @@ class SalesOrdersModel extends BaseModel {
      */
     async fetchSalesOrders(filters = {}) {
         this.filters = { ...this.filters, ...filters };
-        
-        // In a real app, this would call the API
-        // const data = await this.fetchData('/sales-orders', this.filters);
-        
-        // Mock data for demonstration
-        const mockData = this.generateMockData();
-        this.orders = mockData.orders;
+        try {
+            const data = await this.apiService.get('/sales-orders', this.filters);
+            this.orders = (data && data.orders) ? data.orders : [];
+            if (!this.orders.length && data && Array.isArray(data)) {
+                // Some APIs might return array directly
+                this.orders = data;
+            }
+        } catch (e) {
+            const mock = this.generateMockData();
+            this.orders = mock.orders;
+        }
+
         this.summary = this.calculateSummary(this.orders);
         
         this.data = {

@@ -18,6 +18,8 @@ class OpportunitiesView extends BaseView {
         const summary = data?.summary || {};
         const opportunities = data?.opportunities || [];
         const filters = data?.filters || {};
+        const assignees = this.getUniqueAssignees(opportunities);
+        const categories = ['all', 'Products', 'Services', 'General'];
 
         return `
             <div class="dashboard-opportunities">
@@ -41,6 +43,23 @@ class OpportunitiesView extends BaseView {
                                 <option value="progress" ${filters.status === 'progress' ? 'selected' : ''}>In Progress</option>
                                 <option value="closed_won" ${filters.status === 'closed_won' ? 'selected' : ''}>Closed Won</option>
                                 <option value="closed_lost" ${filters.status === 'closed_lost' ? 'selected' : ''}>Closed Lost</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="assignedTo">Assigned To:</label>
+                            <select id="assignedTo" name="assignedTo">
+                                <option value="all" ${filters.assignedTo === 'all' ? 'selected' : ''}>All Assignees</option>
+                                ${assignees.map(name => `
+                                    <option value="${name}" ${filters.assignedTo === name ? 'selected' : ''}>${name}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="category">Category:</label>
+                            <select id="category" name="category">
+                                ${categories.map(cat => `
+                                    <option value="${cat}" ${filters.category === cat ? 'selected' : ''}>${cat === 'all' ? 'All Categories' : cat}</option>
+                                `).join('')}
                             </select>
                         </div>
                         <button type="submit" class="btn btn-primary">Apply Filters</button>
@@ -92,14 +111,14 @@ class OpportunitiesView extends BaseView {
                         <table class="data-table" id="opportunitiesTable">
                             <thead>
                                 <tr>
-                                    <th>Opportunity ID</th>
-                                    <th>Date Created</th>
-                                    <th>Customer</th>
-                                    <th>Category</th>
-                                    <th>Assigned To</th>
-                                    <th>Status</th>
-                                    <th>Age</th>
-                                    <th>Amount</th>
+                                    <th data-sort-key="opportunity_id" aria-sort="none">Opportunity ID</th>
+                                    <th data-sort-key="date_created" aria-sort="none">Date Created</th>
+                                    <th data-sort-key="customer_name" aria-sort="none">Customer</th>
+                                    <th data-sort-key="category" aria-sort="none">Category</th>
+                                    <th data-sort-key="assigned_to" aria-sort="none">Assigned To</th>
+                                    <th data-sort-key="status" aria-sort="none">Status</th>
+                                    <th data-sort-key="age" aria-sort="none">Age</th>
+                                    <th data-sort-key="amount" aria-sort="none" class="text-right">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -224,6 +243,23 @@ class OpportunitiesView extends BaseView {
                 if (this.onFiltersChange) {
                     this.onFiltersChange(filters);
                 }
+            });
+        }
+
+        // Table sorting
+        const table = this.elements.opportunitiesTable;
+        if (table) {
+            const headers = table.querySelectorAll('thead th[data-sort-key]');
+            headers.forEach((th, index) => {
+                th.style.cursor = 'pointer';
+                th.addEventListener('click', () => {
+                    const key = th.getAttribute('data-sort-key');
+                    const current = th.getAttribute('aria-sort') || 'none';
+                    const next = current === 'ascending' ? 'descending' : 'ascending';
+                    headers.forEach(h => h.setAttribute('aria-sort', 'none'));
+                    th.setAttribute('aria-sort', next);
+                    this.sortTable(table, index, key, next === 'ascending');
+                });
             });
         }
     }
@@ -512,6 +548,52 @@ class OpportunitiesView extends BaseView {
      */
     updateCharts(chartData) {
         this.initCharts(chartData);
+    }
+
+    /**
+     * Sort table rows by column
+     */
+    sortTable(table, columnIndex, key, ascending = true) {
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+        const getCellValue = (row) => {
+            const cell = row.children[columnIndex];
+            const text = cell?.innerText?.trim() || '';
+            if (['amount', 'age'].includes(key)) {
+                const num = parseFloat(text.replace(/[^0-9.]/g, '')) || 0;
+                return num;
+            }
+            if (key === 'date_created') {
+                return new Date(text).getTime() || 0;
+            }
+            return text.toLowerCase();
+        };
+
+        rows.sort((a, b) => {
+            const va = getCellValue(a);
+            const vb = getCellValue(b);
+            if (typeof va === 'number' && typeof vb === 'number') {
+                return ascending ? va - vb : vb - va;
+            }
+            const cmp = collator.compare(va, vb);
+            return ascending ? cmp : -cmp;
+        });
+
+        // Re-append in new order
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    /**
+     * Extract unique assignees from opportunities list
+     */
+    getUniqueAssignees(opportunities) {
+        const set = new Set();
+        opportunities.forEach(opp => {
+            if (opp.assigned_to) set.add(opp.assigned_to);
+        });
+        return Array.from(set).sort();
     }
 
     /**

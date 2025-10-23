@@ -3,15 +3,21 @@
  * Provides common functionality for all controllers
  */
 
+import Config from '../config.js';
+import PdfService from '../services/PdfService.js';
+import EmailService from '../services/EmailService.js';
+
 class BaseController {
     constructor(model, view) {
         this.model = model;
         this.view = view;
         this.isInitialized = false;
+        this.refreshTimer = null;
         
         // Bind methods to maintain context
         this.handleDataChange = this.handleDataChange.bind(this);
         this.handleError = this.handleError.bind(this);
+        this.setupAutoRefresh = this.setupAutoRefresh.bind(this);
     }
 
     /**
@@ -31,6 +37,7 @@ class BaseController {
             await this.loadData();
             
             this.isInitialized = true;
+            this.setupAutoRefresh();
             
         } catch (error) {
             console.error('Controller initialization failed:', error);
@@ -114,15 +121,15 @@ class BaseController {
     async exportToPDF() {
         try {
             this.showNotification('Generating PDF...', 'info');
-            
-            // This would call the PDF service
-            // const pdfService = new PdfService(this.apiService);
-            // await pdfService.generateDashboardPDF(this.dashboardType, this.model.getData());
-            
-            // For now, show success message
-            setTimeout(() => {
-                this.showSuccess('PDF exported successfully!');
-            }, 1000);
+
+            const pdfService = new PdfService(this.apiService);
+            const filters = typeof this.model.getFilters === 'function' ? this.model.getFilters() : {};
+            const response = await pdfService.generateDashboardPDF(this.dashboardType, this.model.getData(), filters);
+
+            if (response && response.id) {
+                await this.apiService.downloadPDF(response.id);
+            }
+            this.showSuccess('PDF exported successfully!');
             
         } catch (error) {
             this.handleError('Failed to export PDF', error);
@@ -135,15 +142,10 @@ class BaseController {
     async sendEmailReport(emailData) {
         try {
             this.showNotification('Sending email...', 'info');
-            
-            // This would call the email service
-            // const emailService = new EmailService(this.apiService);
-            // await emailService.sendDashboardReport(this.dashboardType, emailData);
-            
-            // For now, show success message
-            setTimeout(() => {
-                this.showSuccess('Email sent successfully!');
-            }, 1000);
+
+            const emailService = new EmailService(this.apiService);
+            await emailService.sendDashboardReport(this.dashboardType, emailData);
+            this.showSuccess('Email sent successfully!');
             
         } catch (error) {
             this.handleError('Failed to send email', error);
@@ -154,7 +156,10 @@ class BaseController {
      * Show notification (to be implemented by child classes or app)
      */
     showNotification(message, type = 'info') {
-        // This would typically be implemented to show UI notifications
+        if (window.crmApp && typeof window.crmApp.showNotification === 'function') {
+            window.crmApp.showNotification(message, type);
+            return;
+        }
         console.log(`[${type.toUpperCase()}] ${message}`);
     }
 
@@ -169,8 +174,43 @@ class BaseController {
         if (this.view) {
             this.view.destroy();
         }
+
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+            this.refreshTimer = null;
+        }
         
         this.isInitialized = false;
+    }
+
+    /**
+     * Set up auto refresh based on config
+     */
+    setupAutoRefresh() {
+        try {
+            if (!this.dashboardType) return;
+            const dashboardCfg = Config?.DASHBOARDS?.[this.dashboardType];
+            if (!dashboardCfg) return;
+
+            const enable = Config?.UI?.autoRefresh && dashboardCfg?.features?.realTimeUpdates;
+            const intervalMs = dashboardCfg?.refreshInterval || 300000;
+
+            if (this.refreshTimer) {
+                clearInterval(this.refreshTimer);
+                this.refreshTimer = null;
+            }
+
+            if (enable) {
+                this.refreshTimer = setInterval(() => {
+                    // Avoid overlapping refreshes
+                    if (!this.model.getIsLoading()) {
+                        this.refreshData();
+                    }
+                }, intervalMs);
+            }
+        } catch (e) {
+            console.warn('Failed to set up auto refresh', e);
+        }
     }
 }
 
