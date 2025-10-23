@@ -24,22 +24,30 @@ class OpportunitiesModel extends BaseModel {
     async fetchOpportunities(filters = {}) {
         // Merge new filters with existing ones
         this.filters = { ...this.filters, ...filters };
-        
-        // Fetch data from API
-        const data = await this.fetchData('/opportunities', this.filters);
-        
-        // Process the data
-        this.opportunities = data.opportunities || [];
-        this.summary = this.calculateSummary(this.opportunities);
-        
-        // Update main data reference
+
+        try {
+            // Call API directly to control when listeners are notified
+            const data = await this.apiService.get('/opportunities', this.filters);
+
+            // Process the data
+            this.opportunities = data.opportunities || [];
+            this.summary = this.calculateSummary(this.opportunities);
+        } catch (error) {
+            console.warn('Opportunities API failed, falling back to mock data:', error);
+            const mock = await this.apiService.getMockOpportunities();
+            this.opportunities = mock.opportunities || [];
+            this.summary = mock.summary || this.calculateSummary(this.opportunities);
+        }
+
+        // Update main data reference and notify listeners once
         this.data = {
             opportunities: this.opportunities,
             summary: this.summary,
             filters: this.filters,
             lastUpdated: new Date().toISOString()
         };
-        
+
+        this.notifyListeners();
         return this.data;
     }
 
