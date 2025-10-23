@@ -4,7 +4,7 @@
  */
 
 import Config from './config.js';
-import ApiService from './services/ApiService.js';
+import ApiService from './services/APIService.js';
 import OpportunitiesController from './controllers/OpportunitiesController.js';
 import SalesOrdersController from './controllers/SalesOrdersController.js';
 
