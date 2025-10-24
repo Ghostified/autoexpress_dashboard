@@ -7,6 +7,7 @@ import Config from './config.js';
 import ApiService from './services/ApiService.js';
 import OpportunitiesController from './controllers/OpportunitiesController.js';
 import SalesOrdersController from './controllers/SalesOrdersController.js';
+import HelpdeskController from './controllers/HelpdeskController.js';
 
 class CRMApplication {
     constructor() {
@@ -149,10 +150,8 @@ class CRMApplication {
                     this.currentController = new SalesOrdersController(this.apiService);
                     break;
                 case 'helpdesk':
-                    // Show placeholder for helpdesk
-                    this.showHelpdeskPlaceholder();
-                    this.hideLoading();
-                    return;
+                    this.currentController = new HelpdeskController(this.apiService);
+                    break;
                 default:
                     throw new Error(`Unknown dashboard type: ${dashboardType}`);
             }

@@ -23,6 +23,11 @@ class OpportunitiesView extends BaseView {
 
         return `
             <div class="dashboard-opportunities">
+                <!-- KPI Cards -->
+                <div class="kpi-grid" id="kpiContainer">
+                    ${this.generateKPICards(summary)}
+                </div>
+
                 <!-- Filters Section -->
                 <div class="filters-section">
                     <form id="opportunitiesFilters" class="filters-form">
@@ -64,11 +69,6 @@ class OpportunitiesView extends BaseView {
                         </div>
                         <button type="submit" class="btn btn-primary">Apply Filters</button>
                     </form>
-                </div>
-
-                <!-- KPI Cards -->
-                <div class="kpi-grid" id="kpiContainer">
-                    ${this.generateKPICards(summary)}
                 </div>
 
                 <!-- Charts Grid -->
