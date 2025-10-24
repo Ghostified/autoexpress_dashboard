@@ -124,7 +124,7 @@ class BaseController {
 
             const pdfService = new PdfService(this.apiService);
             const filters = typeof this.model.getFilters === 'function' ? this.model.getFilters() : {};
-            const response = await pdfService.generateDashboardPDF(this.dashboardType, this.model.getData(), filters);
+            const response = await pdfService.generateDashboardPDF(this.dashboardType, this.model.getData?.() || {}, filters);
 
             if (response && response.id) {
                 await this.apiService.downloadPDF(response.id);
@@ -132,7 +132,36 @@ class BaseController {
             this.showSuccess('PDF exported successfully!');
             
         } catch (error) {
-            this.handleError('Failed to export PDF', error);
+            console.warn('Server-side PDF export failed, attempting client-side export...', error);
+            try {
+                // Client-side fallback using html2canvas + jsPDF if available
+                if (window.html2canvas && window.jspdf) {
+                    const { jsPDF } = window.jspdf;
+                    const container = document.getElementById('dashboardContainer');
+                    const canvas = await window.html2canvas(container, { scale: 2, useCORS: true });
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const pageWidth = pdf.internal.pageSize.getWidth();
+                    const pageHeight = pdf.internal.pageSize.getHeight();
+                    const imgWidth = pageWidth;
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    let position = 0;
+                    let remaining = imgHeight;
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    while (remaining > pageHeight) {
+                        position = position - pageHeight;
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                        remaining -= pageHeight;
+                    }
+                    pdf.save(`dashboard-${this.dashboardType}-${Date.now()}.pdf`);
+                    this.showSuccess('PDF exported (client-side)');
+                } else {
+                    this.handleError('PDF export failed and fallback not available');
+                }
+            } catch (fallbackError) {
+                this.handleError('PDF export failed', fallbackError);
+            }
         }
     }
 
